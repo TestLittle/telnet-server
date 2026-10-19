@@ -2,13 +2,16 @@ package utb.fai;
 
 import java.io.*;
 import java.net.*;
+import java.util.Set;
 
-public class ClientThread extends Thread {
+public class ClientThread implements Runnable {
 
     private Socket clientSocket;
+    private Set<Socket> activeSockets;
 
-    public ClientThread(Socket clientSocket) {
+    public ClientThread(Socket clientSocket, Set<Socket> activeSockets) {
         this.clientSocket = clientSocket;
+        this.activeSockets = activeSockets;
     }
 
     @Override
@@ -28,6 +31,7 @@ public class ClientThread extends Thread {
         }finally{
             try {
                 clientSocket.close();
+                this.activeSockets.remove(clientSocket);
             }catch (IOException e){
                 e.printStackTrace();
             }

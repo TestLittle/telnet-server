@@ -3,6 +3,8 @@ package utb.fai;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -10,6 +12,9 @@ import java.util.concurrent.TimeUnit;
 
 public class App {
     private static ExecutorService executorService;
+    private static ServerSocket serverSocket;
+    private final static Set<Socket> activeSockets = ConcurrentHashMap.newKeySet();
+
     public static void main(String[] args) {
         // Implement input parameter processing
         int port = Integer.parseInt(args[0]);
@@ -22,16 +27,17 @@ public class App {
             try (ServerSocket serverSocket = new ServerSocket(port)) {
                 while(!executorService.isShutdown()){
                     Socket socket = serverSocket.accept();
-                    ClientThread thread = new ClientThread(socket);
+                    activeSockets.add(socket);
+                    ClientThread thread = new ClientThread(socket, activeSockets);
                     try{
                         executorService.execute(thread);
                     }catch(RejectedExecutionException e){
                         socket.close();
+                        activeSockets.remove(socket);
                     }
                 }
             }
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }finally{
             closeSockets();
@@ -39,6 +45,23 @@ public class App {
     }
 
     public static void closeSockets(){
+        try{
+            if(serverSocket != null && !serverSocket.isClosed()){
+                serverSocket.close();
+            }
+        }catch(IOException e){
+            e.printStackTrace();
+        }
+
+        for(Socket s : activeSockets){
+            try{
+                s.close();
+            }catch(IOException e){
+                e.printStackTrace();
+            }
+        }
+
+
         executorService.shutdown(); // Disable new tasks from being submitted
         try {
             // Wait a while for existing tasks to terminate
